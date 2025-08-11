@@ -10,10 +10,21 @@ pygame.display.set_caption("シューティング")
 clock = pygame.time.Clock()
 font = pygame.font.SysFont(None, 32)
 
+def load_and_scale(path, size):
+    img = pygame.image.load(path).convert_alpha()
+    img = pygame.transform.scale(img, size)
+    return img
+
+PLAYER_SIZE = (50, 50)
+ENEMY_SIZE = (40, 40)
+
+player_img = load_and_scale("player.png", PLAYER_SIZE)
+enemy_img = load_and_scale("enemy.png", ENEMY_SIZE)
+
 # プレイヤー
 class Player:
     def __init__(self):
-        self.rect = pygame.Rect(WIDTH // 2 - 25, HEIGHT - 60, 50, 50)
+        self.rect = pygame.Rect(WIDTH // 2, HEIGHT - 50, PLAYER_SIZE[0], PLAYER_SIZE[1])
         self.hp = 3
         self.speed = 5
         self.invincible_timer = 0
@@ -25,8 +36,12 @@ class Player:
             self.rect.x += self.speed
 
     def draw(self, win):
-        color = (0, 200, 255) if self.invincible_timer == 0 else (150, 150, 255)
-        pygame.draw.rect(win, color, self.rect)
+        if self.invincible_timer == 0:
+            win.blit(player_img, self.rect)
+        else:
+            img = player_img.copy()
+            img.fill((255, 255, 255, 128), special_flags=pygame.BLEND_RGBA_MULT)
+            win.blit(img, self.rect)    
 
     def take_damage(self):
         if self.invincible_timer == 0:
@@ -39,7 +54,7 @@ player = Player()
 bullets = []
 class Enemy:
     def __init__(self, x, y, hp=2):
-        self.rect = pygame.Rect(x, y, 40, 40)
+        self.rect = enemy_img.get_rect(topleft=(x, y))
         self.hp = hp
         self.hit_flash_timer = 0
 
@@ -47,21 +62,23 @@ class Enemy:
         self.rect.y += 3
 
     def draw(self, win):
-        color = (255, 100, 100) if self.hit_flash_timer == 0 else (255, 255, 255)
-        pygame.draw.rect(win, color, self.rect)
         if self.hit_flash_timer > 0:
+            img = enemy_img.copy()
+            img.fill((255, 255, 255, 180), special_flags=pygame.BLEND_RGBA_ADD)
+            win.blit(img, self.rect)
             self.hit_flash_timer -= 1
+        else:
+            win.blit(enemy_img, self.rect)
 
     def take_damage(self):
         self.hp -= 1
-        self.hit_flash_timer = 3
+        self.hit_flash_timer = 5
 
 enemies = []
 
 def spawn_enemy():
-    x = random.randint(0, WIDTH - 40)
-    enemies.append(Enemy(x, -40))
-
+    x = random.randint(0, WIDTH - enemy_img.get_width())
+    enemies.append(Enemy(x, -enemy_img.get_height()))
 # スコア・ミスカウント
 score = 0
 missed = 0
@@ -80,8 +97,9 @@ while running:
     keys = pygame.key.get_pressed()
     player.move(keys)
     if keys[pygame.K_SPACE] and len(bullets) < 5:
-        bullet = pygame.Rect(player.rect.centerx - 5, player.rect.top, 10, 20)
-        bullets.append(bullet)
+        # 弾は四角形のRectで管理
+        bullet_rect = pygame.Rect(player.rect.centerx - 5, player.rect.top, 10, 20)
+        bullets.append(bullet_rect)
 
     # 弾移動
     for bullet in bullets[:]:
